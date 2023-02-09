@@ -1,0 +1,202 @@
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%  IEEEsample2e.tex
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% changes for IEEEtrans.cls marked with !PN
+%% except all occ. of IEEEtran.sty changed IEEEtran.cls
+%%%%%%%%%%                                                       %%%%%%%%%%%%%
+%%%%%%%%%%    More information: see the header of IEEEtran.cls   %%%%%%%%%%%%%
+%%%%%%%%%%                                                       %%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\newcommand{\nop}[1]{}
+\newtheorem{example}{Example}
+
+\documentclass[11pt,twocolumn]{IEEEtran} %!PN
+
+%\documentclass[times, 10pt,twocolumn]{article}
+%\usepackage{latex8}
+%\usepackage{times}
+
+
+\usepackage[centertags]{amsmath}
+%\usepackage{amsthm}
+\usepackage{amssymb}
+
+\def\BibTeX{{\rm B\kern-.05em{\sc i\kern-.025em b}\kern-.08em
+    T\kern-.1667em\lower.7ex\hbox{E}\kern-.125emX}}
+
+\newtheorem{theorem}{Theorem}
+\setcounter{page}{1}
+\newcommand{\Q}{\mbox{\rule[0pt]{1.0ex}{1.0ex}}}
+\def\boxend{\hspace*{\fill} $\Q$}
+
+
+%\newtheorem{theorem}{Theorem}
+%\setcounter{page}{1}
+
+\usepackage{graphicx} %allows .eps and .epsi graphics to be inserted
+\usepackage{float} %allows the use [H] for figures
+
+%\usepackage{setspace}
+
+%\pagestyle{empty}
+
+
+\input epsf
+
+\begin{document}
+
+\title{A Distributed Algorithm for Finding Global Icebergs with Linked Counting Bloom Filters} %!PN
+
+\author{
+\and    Kui Wu
+    Computer Science Dept.\\
+    University of Victoria\\
+    BC, Canada V8W 3P6\\
+    wkui@uvic.ca\\
+}
+%{Murray and Balemi: Using the Document Class IEEEtran.cls} %!PN
+
+
+\maketitle
+
+\begin{abstract}
+Icebergs are data items whose total frequency of occurrence is greater than a given threshold. When the data items are scattered across a large number of nodes, searching for icebergs becomes a challenging tasks especially in bandwidth limited wireless networks. Existing solutions require a centralized server for ease of algorithm design and use random sampling to reduce bandwidth cost. In this paper, we present a new distributed algorithm to search for global icebergs without any centralized control or random sampling.  A new bloom filter, called linked counting bloom filter, is designed to check set membership and to store the accumulative frequency of data items. We evaluate the performance of our distributed algorithm with real world datasets. 
+
+\end{abstract}
+
+%\thispagestyle{empty}
+
+\section{Introduction}
+
+With the advance of virtual social communities over networks like Mobile Bazaar~\cite{ }, it is often required to know popular items among the mobile users, e.g., popular web sites and songs, or the total number of a wanted product in the virtual community. It is an essential operation to search for global icebergs, i.e., data items whose total count in the network is above a given threshold value. The local count of an item could be the quantity of the item or the times the user accesses the item, and it is unclear whether or not a local popular item is a global iceberg. A naive solution to this problem is to allocate a central server and ask all users in the network to ship their data items to the server so that it can merge the data and find the global icebergs. It is clear that this method incurs prohibitive bandwidth cost and thus infeasible for wireless networks. To overcome this problem, Zhao et al.~\cite{ } uses random sampling to reduce bandwidth cost. Since the sampling-based method is not very accurate without a large number of samples, they design a counting-sketch based scheme to reduce sampling rate. In both cases, a centralized server has to be selected and random sampling tends to work well only when the number of data items becomes huge. In distributed wireless networks, however, users may have limited processing capacity or may not be willing to serve as a centralized server. To this end, we need to design a totally distributed algorithm that can effectively find global icebergs.   
+
+There are two types of global iceberg problems: finding global icebergs over distributed bags or over distributed streams~\cite{ }. The main difference is that in the case of distributed bags, each node has enough memory and power to summarize its local stream with zero information loss, that is, each node can provide accurate local counts of data items. In the iceberg problem over distributed streams, a local node cannot obtain the accurate count information due to high-speed data streams but instead can only approximate the frequencies of data items. In this paper, we only focus on the iceberg problem over distributed bags.     
+
+Many papers have been devoted to search for icebergs over streaming data in a single node~\cite{ }. The iceberg problem is first introduced to the distributed environment in~\cite{ } under the assumption that a globally frequent item is also frequent locally somewhere. It is pointed out that this assumption may not be effective if items are evenly distributed among network users~\cite{ }. 
+
+
+
+
+\section{A Linked Counting Bloom Filter and Its Application}
+
+\subsection{Bloom Filter Basics}
+
+A Bloom Filter~\cite{bloom} is a simple space-efficient randomized data structure for approximating a set, which support membership queries. Bloom filters use a set of hashing functions and achieve space efficiency at the cost of a small probability of false positive. Due to the benefit of saving memory space and bandwidth, bloom filters have been broadly adopted in many network applications~\cite{ }.
+
+To represent a set $S$, a Bloom filter uses an array $B$ of $m$ bits, initialized to all $0$'s, and $k$ independent hash functions $h_1, h_2, \ldots, h_k$ with integer output range ${1, 2, \ldots, m}$. Each hash function map an input data item to a random number uniform over the range ${1, 2, \ldots, m}$. To insert a data item $x$ into the set $S$, the bits $B[h_i(x)], i=1, 2, \ldots, k$ are set to $1$, as shown in Figure~\ref{fig:example}. A bit can be set to $1$ multiple times when a hash collision happens or the same data item has already been inserted into $S$), but only the first change takes an effect. To check if a data item $y$ is in set $S$, all bits $B[h_i(y)], i=1, 2, \ldots, k$ should be $1$. If the condition is true, we assume that $y$ is in $S$. Obviously, a Bloom filter guarantees not to have any false negative, i.e., returning ``no" even though $S$ actually contains $y$, but may have a false positive, i.e., suggesting that $y$ is in $S$ even if it is not. 
+
+\begin{figure}[tp]
+\centerline {\epsfxsize = 2.5 in \epsfbox{BloomFilter.eps}}
+\caption{Bloom filter with three hash functions}
+\label{fig:example}
+\end{figure}
+
+Let $n$ the number of data items stored in the Bloom filter. Assuming that the hash functions are perfectly random, the probability that a specific bit is still $0$ after inserting $n$ elements is $$ (1-\frac{1}{m})^{kn} \approx e^{kn/m}.$$
+Hence, the probability of a false positive~\cite{Fan} is
+$$(1-(1-\frac{1}{m})^{kn})^k \approx (1-e^{kn/m})^k.$$   
+
+It is easy to see that the amount of storage consumed by each element is $m/n$ bits. To minimize the probability of false positive, $k$ should be set to $m/nln2$.
+
+The above introduction only includes the operations of inserting an element into a set and checking the membership of a set. If we want to delete an element from a set, unfortunately, we cannot hash the element to be deleted and reverse the corresponding bits from $1$ to $0$. This is because different elements may be hashed to a same location and thus setting the location to $0$ may create false negative. 
+
+To avoid the problem, Fan et al.~\cite{Fan} design a Bloom filter, called counting Bloom filter, where each entry is not a single bit but instead a counter. When an element is added, the corresponding bits are increased by $1$; when an element is removed, the corresponding bits are decreased by $1$. When a counter decreases from $1$ to $0$, the corresponding bit is set to $0$, indicating that the element is removed. The counting Bloom filters solve the problem in removing an element from a set at the cost of using more bits each entry. It has been analyzed that $4$ bits each entry will be enough for the counting Bloom filters of properly selected parameters.  
+ 
+\subsection{Linked Counting Bloom Filter}
+
+The idea of counting Bloom filter is helpful in searching for global icebergs if we include the frequency of an element in the filters. To do this, each entry of the Bloom filter is not a single bit but instead a counter to record frequency. However, Counting Bloom filter with this revision cannot be used directly to find global icebergs. Figure~\ref{fig:countExample} shows an example that the modified counting Bloom filter cannot correctly find the global icebergs. In the example, the counter vector is used to record frequency of items. When an entry is set multiple times, the sum of the frequencies (i.e., $f_a+f_b$ in the example) does not correctly reflect the frequency of any element. Note that we cannot record the identities of elements since the overhead is prohibitive of transmitting identities especially when they are long like URLs~\cite{Fan}.  
+
+
+\begin{figure}[tp]
+\centerline {\epsfxsize = 2.5 in \epsfbox{CountingFilter.eps}}
+\caption{Simple extension of counting bloom filters }
+\label{fig:example}
+\end{figure}
+
+We avoid the above problem based on the observation that the probability that $k$ hash functions hash two different elements into the same locations is extremely small and can be ignored (The analysis is in Appendix A.). We introduce a linked list to each entry of the Bloom filter and once a hash collision occurs, we use the linked list to record each individual frequency value. Frequencies are added only when the same element has been found in the Bloom filter. We call this type of Bloom filter linked counting Bloom filter. 
+
+Figure~\ref{fig:likedFilter} illustrates the operations of linked counting Bloom filters with three hash functions $h_1, h_2, h_3$. Assume that node $1$ has two items $a$ and $b$ with frequency $f_a$ and $f_b$ respectively. Assume that node $2$ has one item $b$ with frequency $f'_b$. Initially, node $1$ inserts item $a$ into the Bloom filter by hashing $a$ with $h_1, h_2, h_3$ and setting $B[h_1(a)], B[h_2(a)], B[h_3(a)]$ to $f_a$. When node $1$ inserts item $b$ into the Bloom filter, it first checks if entries $B[h_1(b)], B[h_2(b)], B[h_3(b)]$ have been set. If any one of the entries is empty, item $b$ is a new item and $f_b$ should be stored into the entries $B[h_1(b)], B[h_2(b)], B[h_3(b)]$ respectively. Note that in the example, $h_2(a) = h_3(b)$ and thus the entry $B[h_2(a)]$ uses a linked list to include both $f_a$ and $f_b$. 
+
+Assume that the linked counting Bloom filter is sent from node $1$ to node $2$ and node $2$ inserts item $b$ into the Bloom filter. By checking $B[h_1(b)], B[h_2(b)], B[h_3(b)]$, node $2$ finds out that all these entries are non-empty and assumes that item $b$ \textit{may} be an item already included in the filter. Nevertheless, since it is not allowed to store the identities in the Bloom filter, it is still unclear what should be the correct frequency of item $b$ set by node $1$ if all these entries include multiple linked values. 
+
+To solve this problem, we use a method of frequency matching. The basic idea is that if item $b$ is an existing item in the Bloom filter, there must be a match among the values stored in $B[h_1(b)], the values in B[h_2(b)], and the values in B[h_3(b)]$ (In the example, $f_b$ can be found in all entries). If a match is found, item $b$ is assumed to be in the Bloom filter and its frequency, $f'_b$, is added up with the existing count $f_b$~\footnote{If multiple matches can be found, the node randomly selects one matched value as the existing count. In this case, errors may be created. But the probability of multiple matches is very small as shown in Sections~\ref{sec:analysys} and~\ref{sec:results}}. If such a match cannot be found, false positive is detected and item $b$ must be a new item not in the filter. Its frequency should not be added up to existing values but instead should be stored separately in the linked lists.   
+
+\begin{figure}[tp]
+\centerline {\epsfxsize = 2.5 in \epsfbox{LinkedBloomFilter.eps}}
+\caption{Linked counting Bloom filters}
+\label{fig:example}
+\end{figure}
+
+Linked counting Bloom filters are very flexible and support useful counting queries for individual elements that are impossible for traditional Bloom filters. The insertion and deletion of elements are also easy. On the downside, linked counting Bloom filters introduce extra bits on recording the links and the counts. But the extra overhead is well justified by the facts that (1) no identities of elements are stored, (2) links are introduced only when hash collisions happen, and (3) linked counting Bloom filters can be compressed effectively with simple compression algorithms like arithmetic coding~\cite{Michael}.        
+
+
+\section{DASGLICE: A \underline{D}istributed \underline{A}lgorithm for \underline{S}earching for \underline{Gl}obal \underline{Ice}bergs}
+
+In this section, we introduce a \underline{D}istributed \underline{A}lgorithm for \underline{S}earching for \underline{Gl}obal \underline{Ice}bergs (DASGLICE). The algorithm is based on linked counting Bloom filters and does not require any centralized control. This feature makes DASGLICE a perfect solution of searching for global icebergs in wireless mesh networks or peer-to-peer networks. Any node, called the source node, can use DASGLICE to find icebergs hidden in the distributed networks. 
+
+Given a threshold frequency, DASGLICE finds all global icebergs with the following steps: 
+\begin{enumerate}
+\item \textbf{Step 1:} The source node builds a linked counting Bloom filter using its own data set. To save resource, if a local data item is already an iceberg, this item is returned as one answer and it is not recorded in the Bloom filter.
+
+\item \textbf{Step 2:} The source node broadcasts the linked counting Bloom filter to its direct neighbors in the network. Each intermediate node appends its node ID to the header of the message storing the linked counting Bloom filter so that answers can be routed back to the source node.  
+
+\item \textbf{Step 3:} Each intermediate node, once receives the linked counting Bloom filter, checks the linked counting Bloom filter and its own data items. If a data item turns out to be an iceberg, the result is returned to the source node using the reversed path recorded in the message header. For a data item that is not currently an iceberg, the node checks the membership of the data item in the Bloom filter and inserts (if the data item is new to the filter) or add (if the data item already exists in the filter) the frequency of the data item to the linked counting Bloom filter. After that the intermediate node broadcasts the linked counting Bloom filter to its direct network neighbors.
+
+\item \textbf{Step 4:} Repeat step 2 and step 3 until all nodes are reached~\footnote{In a distributed network, the source node is difficult to check if all nodes have been reached. The source node can simply wait for a long time for replies to return.). To avoid broadcast storm problem~\cite{ }, an intermediate node should put off the  broadcast with a random delay. To avoid message loop, an intermediate node should not process the linked counting Bloom filter twice for the same query (A query can be uniquely identified with the source node ID and the message ID). Because of this, DASGLICE will finally terminate since each node processes the linked Bloom filter only once.    
+
+
+\section{Probability of False Positives and Multiple Frequency Matches}
+\label{sec:analysis}
+
+\section{Evaluation} 
+
+
+
+\section{Related work}
+
+
+\section{Conclusion}
+
+
+\  
+\begin{figure}[tp]
+\centerline {\epsfxsize = 2.5 in \epsfbox{Figure1.eps}}
+\caption{Illustration of Expanding Ring Search}
+\label{fig:fig1}
+\end{figure}
+
+
+
+\nocite{*}
+%\bibliographystyle{latex8}
+\bibliographystyle{IEEEtran}
+%\bibliography{mascots}
+
+%\nocite{*}
+%\bibliographystyle{IEEE}
+%%%%%\bibliography{bib-file}  % commented if *.bbl file included, as
+%%%%%see below
+
+
+%%%%%%%%%%%%%%%%% BIBLIOGRAPHY IN THE LaTeX file !!!!! %%%%%%%%%%%%%%%%%%%%%%%%
+%% This is nothing else than the IEEEsample.bbl file that you would
+%%
+%% obtain with BibTeX: you do not need to send around the *.bbl file
+%%
+%%---------------------------------------------------------------------------%%
+%
+\fontsize{9pt}{10.8pt}
+\begin{thebibliography}{1}
+
+\bibitem{Chang}N. Chang and M. Liu, 
+\newblock ``Revisiting the TTL-based controlled flooding search: optimality and randomization," 
+\newblock \textit{ACM MobiCom 04}, September 2004, Philadelphia, PA, pp. 85-99.  
+
+\bibitem{Williams}
+B. Williams, T. Camp, 
+\newblock ``Comparison of Broadcasting Techniques for Mobile Ad Hoc Networks,"
+\newblock \textit{Proceedings of Mobihoc 2002},
+\newblock June 2002, Lausanne, Switzerland, pp. 194-205. 
+\end{thebibliography}
+
+\end{document}
+
