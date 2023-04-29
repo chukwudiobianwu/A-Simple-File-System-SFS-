@@ -3,11 +3,11 @@
 #include<sys/stat.h>
 #include<sys/mman.h>
 #include<fcntl.h>
-#include<unistd.h>jb
+#include<unistd.h>
 #include<stdlib.h>
 #include<string.h>
 
-#define timeLocation 14 //Location of creation time in directory entry
+#define timeLocation 14 //Location of creation time in dirgit ectory entry
 #define dateLocation 16 //Location of creation date in directory entry
 
 static unsigned int bytes_per_sector;
